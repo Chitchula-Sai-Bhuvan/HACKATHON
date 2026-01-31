@@ -9,24 +9,25 @@ COMMANDS TO IMPLEMENT:
 import sys
 import asyncio
 import os
-from code.orchestration.agent_orchestrator import AgentOrchestrator
+from abh.orchestration.agent_orchestrator import AgentOrchestrator
 
 async def main():
     if len(sys.argv) < 2:
-        print("Usage: python code/main.py <path_to_code_file>")
+        print("\n🤖 Agentic Bug Hunter - Home of Automated Code Safety")
+        print("Usage: python abh/main.py <path_to_code_file>")
+        print("Example: python abh/main.py test_file.cpp\n")
         return
 
     file_path = sys.argv[1]
     if not os.path.exists(file_path):
-        print(f"Error: File {file_path} not found.")
+        print(f"❌ Error: File {file_path} not found.")
         return
 
-    print("Agentic Bug Hunter Initializing...")
     orchestrator = AgentOrchestrator()
     try:
         await orchestrator.run_pipeline(file_path)
     except Exception as e:
-        print(f"Error during execution: {e}")
+        print(f"💥 Critical Error during execution: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())

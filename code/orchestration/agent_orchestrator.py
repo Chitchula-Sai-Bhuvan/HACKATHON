@@ -1,19 +1,19 @@
 
 """
-ORCHESTRATION FLOW:
-1. Receive user code file
-2. Call Bug Locator Agent
-3. Call Bug Explainer Agent
-4. Call Bug Memory Agent
-5. Call CSV Writer Agent
-6. Return final bug report
+AGENT ORCHESTRATOR:
+The "Brain" of the system.
+Sequence:
+1. Locate Agent -> Finding potential bug spots (Consolidated & Ranked)
+2. Explainer Agent -> Grounding bug in knowledge base
+3. Memory Agent -> Checking for duplicates in output.csv
+4. Writer Agent -> Saving the final report
 """
 
-from ..agents.bug_locator_agent import BugLocatorAgent
-from ..agents.bug_explainer_agent import BugExplainerAgent
-from ..agents.bug_memory_agent import BugMemoryAgent
-from ..agents.csv_writer_agent import CSVWriterAgent
-from ..configs.paths_config import OUTPUT_CSV
+from abh.agents.bug_locator_agent import BugLocatorAgent
+from abh.agents.bug_explainer_agent import BugExplainerAgent
+from abh.agents.bug_memory_agent import BugMemoryAgent
+from abh.agents.csv_writer_agent import CSVWriterAgent
+from abh.configs.paths_config import OUTPUT_CSV
 
 class AgentOrchestrator:
     """Orchestrates the workflow between different agents."""
@@ -25,26 +25,53 @@ class AgentOrchestrator:
         self.writer = CSVWriterAgent()
 
     async def run_pipeline(self, target_file_path: str):
-        print(f"--- Starting Analysis for {target_file_path} ---")
+        print(f"\n🚀 --- Starting Agentic Analysis for: {target_file_path} ---")
         
         # 1. Read input
+        if not target_file_path.endswith(('.cpp', '.c', '.h', '.py')):
+            print(f"⚠️ Warning: {target_file_path} has an unusual extension, detection might be less accurate.")
+            
         with open(target_file_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        # 2. Locate
+        # 2. LOCATE: Identify where the bug is
+        print("\n[Step 1/4] Locating potential bug sites...")
+        # (Input validation optional for raw content)
         bugs = await self.locator.locate_bug(target_file_path, content)
+        # BUG: Output of locator is List[BugObject], validate if needed
+        # We assume locator internal consolidation returned high quality BugObjects
         
-        # 3. Explain and Check Memory
-        final_bugs = []
-        for bug in bugs:
-            # Enrich with knowledge
-            bug = await self.explainer.explain_bug(bug)
-            # Check short-term memory (duplicates)
-            bug = await self.memory.check_short_term_memory(bug)
-            final_bugs.append(bug)
+        if not bugs:
+            print("✅ No known bug patterns localized. Your code seems clean against our DB!")
+            return []
 
-        # 4. Report
-        await self.writer.finalize_report(final_bugs)
+        # 3. EXPLAIN & CHECK MEMORY
+        memory_decisions = []
         
-        print(f"--- Analysis Complete. Results in {OUTPUT_CSV} ---")
-        return final_bugs
+        for i, bug in enumerate(bugs):
+            print(f"\n--- Processing Detection {i+1}/{len(bugs)} ---")
+            
+            # 3a. EXPLAIN: Ground the bug in knowledge
+            print("[Step 2/4] Grounding bug in Knowledge Base...")
+            # Input Validation (BugObject)
+            from abh.schemas.bug_object_schema import BugObject
+            self.explainer.validate_input(bug, BugObject)
+            
+            bug = await self.explainer.explain_bug(bug)
+            # Output Validation
+            self.explainer.validate_output(bug, BugObject)
+            
+            # 3b. MEMORY: Check if we've already reported this
+            print("[Step 3/4] Checking Short-Term Memory (Identity Management)...")
+            self.memory.validate_input(bug, BugObject)
+            
+            decision = await self.memory.check_short_term_memory(bug)
+            # decision is a dict, we could define a DecisionSchema if we wanted
+            memory_decisions.append(decision)
+
+        # 4. REPORT: Write to CSV
+        print("\n[Step 4/4] Finalizing report...")
+        await self.writer.finalize_report(memory_decisions)
+        
+        print(f"\n✨ --- Analysis Complete! Results saved in {OUTPUT_CSV} --- ✨")
+        return [d['record'] for d in memory_decisions]
