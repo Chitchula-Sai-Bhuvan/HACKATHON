@@ -1,0 +1,22 @@
+[
+  {
+    "type": "RULE_DOCUMENT",
+    "language": "C++",
+    "component": "rdi.smartVec()",
+    "rule": "execute() must be the final call in a smartVec chain",
+    "violation_condition": "execute() appears before pin(), writeData(), or label()",
+    "consequence": "Vector finalizes early; later calls are invalid",
+    "derived_from": "smartVec + execute + wrong order",
+    "supporting_bug_count": 16
+  },
+  {
+    "type": "RULE_DOCUMENT",
+    "language": "C++",
+    "component": "rdi.smartVec()",
+    "rule": "execute() must be the final call in a smartVec chain",
+    "violation_condition": "execute() appears before pin(), writeData(), or label()",
+    "consequence": "Vector finalizes early; later calls are invalid",
+    "derived_from": "unknown pattern",
+    "supporting_bug_count": 4
+  }
+]
